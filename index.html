@@ -3,81 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>愤怒的小鸟：复仇行动</title>
+    <title>愤怒的小鸟：稳定修复版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap');
         
         body { 
             margin: 0; padding: 0; overflow: hidden; 
-            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
-            font-family: 'Fredoka One', cursive;
-            touch-action: none; /* 禁止手机下拉刷新 */
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F7FA 100%);
+            font-family: 'Fredoka One', sans-serif;
+            touch-action: none;
         }
 
         #canvas-container {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         }
 
-        /* UI 覆盖层 */
+        /* 界面UI */
         .ui-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            position: absolute; pointer-events: none; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: space-between;
         }
 
         .hud {
-            padding: 20px;
-            display: flex;
-            justify-content: space-between;
-            font-size: 24px;
-            color: white;
-            text-shadow: 3px 3px 0 #000;
+            padding: 20px; font-size: 24px; color: #333;
+            text-shadow: 2px 2px 0 #FFF; font-weight: bold;
+            display: flex; justify-content: space-between;
         }
 
-        /* 弹窗样式 */
-        .modal {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px 50px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        /* 按钮和菜单 */
+        #startScreen, #endModal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             pointer-events: auto;
-            border: 5px solid #ffcc00;
-            display: none; /* 默认隐藏 */
+            z-index: 100;
         }
 
-        .modal h1 { margin: 0 0 10px 0; color: #ff4444; font-size: 40px; -webkit-text-stroke: 1px black;}
-        .modal p { font-size: 20px; color: #333; }
+        #endModal { display: none; }
 
+        h1 { font-size: 50px; color: #ffcc00; text-shadow: 4px 4px 0 #d32f2f; margin: 0 0 20px 0; text-align: center; }
+        
         button {
-            background: #70e000;
-            border: none;
-            padding: 15px 40px;
-            font-size: 24px;
-            color: white;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 5px 0 #38b000;
-            font-family: 'Fredoka One', cursive;
-            transition: transform 0.1s;
-            margin-top: 15px;
+            background: #76c893; border: 3px solid #fff;
+            padding: 15px 40px; font-size: 24px; color: white;
+            border-radius: 50px; cursor: pointer;
+            box-shadow: 0 6px 0 #348aa7;
+            font-family: inherit; transition: transform 0.1s;
         }
-        
-        button:active { transform: translateY(4px); box-shadow: 0 1px 0 #38b000; }
-        button.restart { background: #ff4444; box-shadow: 0 5px 0 #cc0000; }
-        
-        /* 开始界面 */
-        #startScreen { display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); }
-        #gameTitle { font-size: 60px; color: #ffcc00; text-shadow: 4px 4px 0 #cc0000; margin-bottom: 20px; text-align: center;}
+        button:active { transform: translateY(4px); box-shadow: 0 2px 0 #348aa7; }
+        button.restart { background: #e63946; box-shadow: 0 6px 0 #9d0208; }
 
     </style>
 </head>
@@ -87,24 +62,22 @@
 
     <div class="ui-layer">
         <div class="hud">
-            <div>分数: <span id="scoreVal">0</span></div>
-            <div style="font-size: 16px; opacity: 0.8;">拖拽发射 • R重置</div>
+            <span>分数: <span id="scoreVal">0</span></span>
+            <span style="font-size:16px; color:#666;">按 R 重置</span>
         </div>
     </div>
 
-    <div id="startScreen" class="ui-layer" style="pointer-events: auto;">
-        <div id="gameTitle">ANGRY<br>BIRDS<br><span style="font-size:30px; color: white;">简易复刻版</span></div>
+    <div id="startScreen">
+        <h1>ANGRY BIRDS<br><span style="font-size:0.5em; color:white;">修复版</span></h1>
         <button onclick="startGame()">开始游戏</button>
     </div>
 
-    <div id="endModal" class="modal">
+    <div id="endModal">
         <h1 id="endTitle">胜利!</h1>
-        <p>你的得分: <span id="finalScore">0</span></p>
         <button class="restart" onclick="resetGame()">再玩一次</button>
     </div>
 
     <script>
-        // --- 物理引擎设置 ---
         const Engine = Matter.Engine,
               Render = Matter.Render,
               Runner = Matter.Runner,
@@ -118,70 +91,154 @@
 
         let engine, render, runner;
         let bird, sling, firingAnchor;
-        let pigs = [];
         let score = 0;
-        let floatingTexts = []; // 飘字数组
-        let gameMode = 'start'; // start, playing, over
+        let gameInterval;
 
-        // 资源配置
-        const BIRD_RADIUS = 25;
-        const PIG_RADIUS = 25;
-
-        function initPhysics() {
+        function initGame() {
             const container = document.getElementById('canvas-container');
-            container.innerHTML = ''; // 清空
+            container.innerHTML = ''; 
 
             engine = Engine.create();
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
             render = Render.create({
                 element: container,
                 engine: engine,
                 options: {
-                    width: window.innerWidth,
-                    height: window.innerHeight,
-                    wireframes: false, // 关闭线框，我们将自定义绘制
+                    width: width,
+                    height: height,
+                    wireframes: false, // 即使画图失败，也要显示色块
                     background: 'transparent',
-                    pixelRatio: window.devicePixelRatio // 高清屏支持
+                    pixelRatio: window.devicePixelRatio
                 }
             });
 
-            // 自定义渲染循环 (画皮肤)
-            Events.on(render, 'afterRender', renderCustomGraphics);
-            // 碰撞监听
-            Events.on(engine, 'collisionStart', handleCollisions);
+            // --- 创建关卡物体 ---
+            
+            // 1. 地面 (带颜色保底)
+            const ground = Bodies.rectangle(width/2, height + 30, width, 100, { 
+                isStatic: true, label: 'Ground',
+                render: { fillStyle: '#8B4513' } 
+            });
 
-            // 鼠标控制
+            // 2. 平台
+            const platformX = width * 0.75;
+            const platformY = height - 150;
+            const platform = Bodies.rectangle(platformX, platformY, 200, 20, { 
+                isStatic: true, label: 'Platform',
+                render: { fillStyle: '#A0522D' }
+            });
+
+            // 3. 敌人和箱子
+            const boxSize = 40;
+            const pyramid = Composite.create();
+            // 底部两个箱子
+            Composite.add(pyramid, Bodies.rectangle(platformX - 30, platformY - 25, boxSize, boxSize, { label: 'Box', render: { fillStyle: '#deb887' } }));
+            Composite.add(pyramid, Bodies.rectangle(platformX + 30, platformY - 25, boxSize, boxSize, { label: 'Box', render: { fillStyle: '#deb887' } }));
+            // 顶部一个猪
+            const pig = Bodies.circle(platformX, platformY - 65, 20, { 
+                label: 'Pig', 
+                render: { fillStyle: '#76c893' } // 绿色保底
+            });
+            Composite.add(pyramid, pig);
+
+            // 4. 弹弓和小鸟
+            firingAnchor = { x: width * 0.2, y: height - 180 };
+            bird = Bodies.circle(firingAnchor.x, firingAnchor.y, 20, { 
+                label: 'Bird', density: 0.004, restitution: 0.6,
+                render: { fillStyle: '#e63946' } // 红色保底
+            });
+
+            sling = Constraint.create({
+                pointA: firingAnchor,
+                bodyB: bird,
+                stiffness: 0.05,
+                length: 1,
+                render: { visible: false } // 我们自己画线，但如果看不见线，鸟还在
+            });
+
+            Composite.add(engine.world, [ground, platform, pyramid, bird, sling]);
+
+            // --- 交互控制 ---
             const mouse = Mouse.create(render.canvas);
             const mouseConstraint = MouseConstraint.create(engine, {
                 mouse: mouse,
-                constraint: {
-                    stiffness: 0.1,
-                    render: { visible: false }
-                }
+                constraint: { stiffness: 0.1, render: { visible: false } }
             });
-            
-            // 解决鼠标滚轮和右键问题
-            mouse.element.removeEventListener("mousewheel", mouse.mousewheel);
-            mouse.element.removeEventListener("DOMMouseScroll", mouse.mousewheel);
-
             Composite.add(engine.world, mouseConstraint);
             render.mouse = mouse;
 
-            // 发射检测
+            // --- 绘图挂钩 (安全版) ---
+            Events.on(render, 'afterRender', function() {
+                const ctx = render.context;
+                const bodies = Composite.allBodies(engine.world);
+
+                // 绘制弹弓皮筋 (画在最下面)
+                if (sling && bird) {
+                    ctx.beginPath();
+                    ctx.moveTo(firingAnchor.x, firingAnchor.y);
+                    ctx.lineTo(bird.position.x, bird.position.y);
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#333';
+                    ctx.stroke();
+                }
+
+                // 遍历物体进行美化绘制
+                bodies.forEach(body => {
+                    // 关键修复：使用 save/restore 防止坐标系错乱
+                    ctx.save(); 
+                    ctx.translate(body.position.x, body.position.y);
+                    ctx.rotate(body.angle);
+
+                    if (body.label === 'Bird') {
+                        // 画更精致的鸟
+                        ctx.beginPath(); arc(ctx, 0, 0, 20);
+                        ctx.fillStyle = '#e63946'; ctx.fill(); // 红身
+                        ctx.beginPath(); arc(ctx, 8, -5, 5); ctx.fillStyle = 'white'; ctx.fill(); // 眼白
+                        ctx.beginPath(); arc(ctx, 8, -5, 2); ctx.fillStyle = 'black'; ctx.fill(); // 瞳孔
+                        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(15, 5); ctx.lineTo(0, 10); ctx.fillStyle='#ffb703'; ctx.fill(); // 嘴
+                    } else if (body.label === 'Pig') {
+                        ctx.beginPath(); arc(ctx, 0, 0, 20);
+                        ctx.fillStyle = '#90be6d'; ctx.fill(); // 绿猪
+                        ctx.beginPath(); arc(ctx, -6, -5, 4); ctx.fillStyle = 'black'; ctx.fill();
+                        ctx.beginPath(); arc(ctx, 6, -5, 4); ctx.fillStyle = 'black'; ctx.fill();
+                        ctx.beginPath(); arc(ctx, 0, 5, 8); ctx.fillStyle = '#588157'; ctx.fill(); // 鼻子
+                    } else if (body.label === 'Box') {
+                        ctx.fillStyle = '#f4a261';
+                        ctx.fillRect(-20, -20, 40, 40);
+                        ctx.strokeStyle = '#e76f51';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(-20, -20, 40, 40);
+                        ctx.beginPath(); ctx.moveTo(-20,-20); ctx.lineTo(20,20); ctx.stroke();
+                    }
+
+                    ctx.restore(); // 恢复坐标系
+                });
+            });
+
+            // --- 游戏逻辑监控 ---
             Events.on(engine, 'afterUpdate', function() {
+                // 发射检测
                 if (bird && sling && mouse.button === -1) {
-                    const speed = Vector.magnitude(bird.velocity);
-                    const dist = Vector.magnitude(Vector.sub(bird.position, firingAnchor));
-                    
-                    // 如果鸟离开了弹弓范围且速度较快，视为发射
-                    if (dist > 30 && bird.position.x > firingAnchor.x + 10) {
+                    if (bird.position.x > firingAnchor.x + 20) {
                         setTimeout(() => {
                             if(sling) Composite.remove(engine.world, sling);
                             sling = null;
-                            // 3秒后如果没有赢，重置
-                            setTimeout(checkWinCondition, 4000);
-                        }, 50);
+                            // 3秒后判决
+                            setTimeout(checkWin, 3000);
+                        }, 20);
                     }
                 }
+                // 碰撞检测 (猪死)
+                const pigs = engine.world.bodies.filter(b => b.label === 'Pig');
+                pigs.forEach(p => {
+                    if (p.speed > 10 || p.position.y > height || p.position.x > width) {
+                        Composite.remove(engine.world, p);
+                        score += 500;
+                        document.getElementById('scoreVal').innerText = score;
+                    }
+                });
             });
 
             Render.run(render);
@@ -189,360 +246,41 @@
             Runner.run(runner, engine);
         }
 
-        function createLevel() {
-            const w = window.innerWidth;
-            const h = window.innerHeight;
-            const world = engine.world;
+        function arc(ctx, x, y, r) {
+            ctx.arc(x, y, r, 0, Math.PI*2);
+        }
 
-            // 1. 地面
-            const ground = Bodies.rectangle(w/2, h + 40, w, 200, { isStatic: true, label: 'Ground' });
-            
-            // 2. 平台
-            const platformX = w * 0.75;
-            const platformY = h - 100;
-            const platform = Bodies.rectangle(platformX, platformY, 300, 20, { isStatic: true, label: 'Wood' });
-
-            // 3. 小鸟
-            firingAnchor = { x: w * 0.2, y: h - 200 };
-            bird = Bodies.circle(firingAnchor.x, firingAnchor.y, BIRD_RADIUS, { 
-                label: 'Bird', density: 0.004, restitution: 0.6 
-            });
-
-            // 4. 弹弓约束
-            sling = Constraint.create({
-                pointA: firingAnchor,
-                bodyB: bird,
-                stiffness: 0.05,
-                length: 1,
-                damping: 0.01,
-                render: { visible: false } // 我们自己画皮筋
-            });
-
-            // 5. 猪和箱子 (金字塔结构)
-            pigs = [];
-            const boxSize = 50;
-            
-            // 底层箱子
-            for(let i=0; i<3; i++) {
-                let box = Bodies.rectangle(platformX - 50 + i*50, platformY - 30, 45, 45, { label: 'Wood' });
-                Composite.add(world, box);
+        function checkWin() {
+            const pigs = engine.world.bodies.filter(b => b.label === 'Pig');
+            if (pigs.length === 0) {
+                document.getElementById('endTitle').innerText = "胜利!";
+                document.getElementById('endModal').style.display = 'flex';
+            } else {
+                document.getElementById('endTitle').innerText = "失败...";
+                document.getElementById('endModal').style.display = 'flex';
             }
-            // 中层猪
-            let pig1 = Bodies.circle(platformX, platformY - 80, PIG_RADIUS, { label: 'Pig' });
-            pigs.push(pig1);
-            
-            // 顶层箱子
-            let topBox = Bodies.rectangle(platformX, platformY - 130, 45, 45, { label: 'Wood' });
-            
-            // 再加点障碍
-            let sideBox = Bodies.rectangle(platformX + 80, platformY - 80, 20, 100, {label: 'Ice'});
-
-            Composite.add(world, [ground, platform, bird, sling, pig1, topBox, sideBox]);
         }
 
         function startGame() {
             document.getElementById('startScreen').style.display = 'none';
-            initPhysics();
-            createLevel();
-            gameMode = 'playing';
-            score = 0;
-            updateScoreUI();
+            initGame();
         }
 
         function resetGame() {
             document.getElementById('endModal').style.display = 'none';
-            // 停止旧世界
-            Render.stop(render);
-            Runner.stop(runner);
-            // 重启
-            initPhysics();
-            createLevel();
+            if(render) {
+                Render.stop(render);
+                Runner.stop(runner);
+            }
             score = 0;
-            updateScoreUI();
+            document.getElementById('scoreVal').innerText = '0';
+            initGame();
         }
 
-        function updateScoreUI() {
-            document.getElementById('scoreVal').innerText = score;
-            document.getElementById('finalScore').innerText = score;
-        }
-
-        // --- 核心：自定义绘图 (让画面变美) ---
-        function renderCustomGraphics() {
-            const ctx = render.context;
-            const bodies = Composite.allBodies(engine.world);
-
-            // 1. 绘制背景装饰 (云朵)
-            drawCloud(ctx, 100, 100, 1.2);
-            drawCloud(ctx, window.innerWidth - 200, 150, 0.8);
-
-            // 2. 绘制弹弓后半部分 (皮筋)
-            if (sling && bird) {
-                ctx.beginPath();
-                ctx.moveTo(firingAnchor.x - 15, firingAnchor.y + 20); // 弹弓左叉
-                ctx.lineTo(bird.position.x, bird.position.y);
-                ctx.lineWidth = 5;
-                ctx.strokeStyle = '#3d2e1e';
-                ctx.stroke();
-            }
-
-            // 3. 遍历物体绘制
-            bodies.forEach(body => {
-                if (body.label === 'Bird') drawBird(ctx, body);
-                else if (body.label === 'Pig') drawPig(ctx, body);
-                else if (body.label === 'Wood') drawBox(ctx, body, '#deb887', '#8b4513'); // 木头颜色
-                else if (body.label === 'Ice') drawBox(ctx, body, '#a5f2f3', '#fff');     // 冰块颜色
-                else if (body.label === 'Ground') {
-                    ctx.fillStyle = '#5dbd2d';
-                    ctx.fillRect(0, body.position.y - 100, window.innerWidth, 300);
-                    // 草皮装饰
-                    ctx.fillStyle = '#4da823';
-                    ctx.fillRect(0, body.position.y - 100, window.innerWidth, 15);
-                }
-            });
-
-            // 4. 绘制弹弓前半部分 (遮挡鸟)
-            drawSlingshotStand(ctx, firingAnchor);
-
-            // 5. 绘制飘字
-            updateFloatingTexts(ctx);
-        }
-
-        // 画弹弓底座
-        function drawSlingshotStand(ctx, pos) {
-            ctx.fillStyle = '#5C4033';
-            // 柱子
-            ctx.fillRect(pos.x - 5, pos.y + 20, 10, 100);
-            // 叉
-            ctx.strokeStyle = '#5C4033';
-            ctx.lineWidth = 8;
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y + 20);
-            ctx.lineTo(pos.x - 15, pos.y - 10);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(pos.x, pos.y + 20);
-            ctx.lineTo(pos.x + 15, pos.y - 10);
-            ctx.stroke();
-        }
-
-        // 画鸟
-        function drawBird(ctx, body) {
-            const pos = body.position;
-            const angle = body.angle;
-            
-            ctx.translate(pos.x, pos.y);
-            ctx.rotate(angle);
-
-            // 身体
-            ctx.beginPath();
-            ctx.arc(0, 0, BIRD_RADIUS, 0, 2 * Math.PI);
-            ctx.fillStyle = '#d90429';
-            ctx.fill();
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#8d0801';
-            ctx.stroke();
-
-            // 眼睛
-            ctx.beginPath();
-            ctx.arc(8, -8, 8, 0, 2 * Math.PI); // 右眼
-            ctx.arc(-8, -8, 8, 0, 2 * Math.PI); // 左眼
-            ctx.fillStyle = '#fff';
-            ctx.fill();
-            
-            // 瞳孔
-            ctx.beginPath();
-            ctx.arc(8, -8, 3, 0, 2 * Math.PI);
-            ctx.arc(-8, -8, 3, 0, 2 * Math.PI);
-            ctx.fillStyle = '#000';
-            ctx.fill();
-
-            // 眉毛
-            ctx.beginPath();
-            ctx.rect(-12, -18, 24, 6);
-            ctx.fillStyle = '#000';
-            ctx.fill();
-
-            // 嘴巴
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(10, 5);
-            ctx.lineTo(0, 10);
-            ctx.fillStyle = '#ffcc00';
-            ctx.fill();
-
-            ctx.rotate(-angle);
-            ctx.translate(-pos.x, -pos.y);
-        }
-
-        // 画猪
-        function drawPig(ctx, body) {
-            const pos = body.position;
-            const angle = body.angle;
-            
-            ctx.translate(pos.x, pos.y);
-            ctx.rotate(angle);
-
-            // 身体
-            ctx.beginPath();
-            ctx.arc(0, 0, PIG_RADIUS, 0, 2 * Math.PI);
-            ctx.fillStyle = '#8ac926';
-            ctx.fill();
-            ctx.strokeStyle = '#1982c4';
-            ctx.lineWidth = 1;
-            ctx.stroke();
-
-            // 鼻子
-            ctx.beginPath();
-            ctx.ellipse(0, 3, 10, 8, 0, 0, 2 * Math.PI);
-            ctx.fillStyle = '#5fad06';
-            ctx.fill();
-            // 鼻孔
-            ctx.fillStyle = '#fff';
-            ctx.beginPath(); ctx.arc(-3, 3, 2, 0, 2*Math.PI); ctx.fill();
-            ctx.beginPath(); ctx.arc(3, 3, 2, 0, 2*Math.PI); ctx.fill();
-
-            // 眼睛
-            ctx.fillStyle = '#fff';
-            ctx.beginPath(); ctx.arc(-10, -5, 6, 0, 2*Math.PI); ctx.fill();
-            ctx.beginPath(); ctx.arc(10, -5, 6, 0, 2*Math.PI); ctx.fill();
-            ctx.fillStyle = '#000';
-            ctx.beginPath(); ctx.arc(-10, -5, 2, 0, 2*Math.PI); ctx.fill();
-            ctx.beginPath(); ctx.arc(10, -5, 2, 0, 2*Math.PI); ctx.fill();
-
-            ctx.rotate(-angle);
-            ctx.translate(-pos.x, -pos.y);
-        }
-
-        // 画箱子
-        function drawBox(ctx, body, color, stroke) {
-            const pos = body.position;
-            const angle = body.angle;
-            const w = body.bounds.max.x - body.bounds.min.x;
-            const h = body.bounds.max.y - body.bounds.min.y;
-
-            ctx.translate(pos.x, pos.y);
-            ctx.rotate(angle);
-
-            ctx.fillStyle = color;
-            ctx.fillRect(-w/2, -h/2, w, h);
-            
-            // X纹理
-            ctx.beginPath();
-            ctx.strokeStyle = stroke;
-            ctx.lineWidth = 2;
-            ctx.rect(-w/2, -h/2, w, h);
-            ctx.moveTo(-w/2, -h/2);
-            ctx.lineTo(w/2, h/2);
-            ctx.moveTo(w/2, -h/2);
-            ctx.lineTo(-w/2, h/2);
-            ctx.stroke();
-
-            ctx.rotate(-angle);
-            ctx.translate(-pos.x, -pos.y);
-        }
-
-        // 画云
-        function drawCloud(ctx, x, y, scale) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(scale, scale);
-            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
-            ctx.beginPath();
-            ctx.arc(0,0, 30, 0, Math.PI*2);
-            ctx.arc(40,10, 35, 0, Math.PI*2);
-            ctx.arc(80,0, 30, 0, Math.PI*2);
-            ctx.fill();
-            ctx.restore();
-        }
-
-        // --- 逻辑部分 ---
-        function handleCollisions(event) {
-            const pairs = event.pairs;
-            pairs.forEach(pair => {
-                const bodyA = pair.bodyA;
-                const bodyB = pair.bodyB;
-
-                // 简单的冲击力计算
-                const speed = (bodyA.speed + bodyB.speed);
-                
-                if (speed > 3) {
-                    // 猪被打中
-                    if (bodyA.label === 'Pig' || bodyB.label === 'Pig') {
-                        const pig = bodyA.label === 'Pig' ? bodyA : bodyB;
-                        // 移除猪
-                        if(!pig.isDead) {
-                            pig.isDead = true;
-                            addScore(500, pig.position);
-                            Composite.remove(engine.world, pig);
-                            checkWinCondition();
-                        }
-                    }
-                    // 木头碰撞得分
-                    else if ((bodyA.label === 'Wood' || bodyB.label === 'Wood') && speed > 8) {
-                        addScore(50, pair.collision.supports[0]);
-                    }
-                }
-            });
-        }
-
-        function addScore(points, pos) {
-            score += points;
-            updateScoreUI();
-            // 飘字效果
-            floatingTexts.push({
-                text: '+' + points,
-                x: pos.x || pos.x,
-                y: pos.y || pos.y,
-                life: 50
-            });
-        }
-
-        function updateFloatingTexts(ctx) {
-            ctx.font = "bold 24px Arial";
-            ctx.fillStyle = "#fff";
-            ctx.strokeStyle = "#000";
-            ctx.lineWidth = 2;
-
-            for (let i = floatingTexts.length - 1; i >= 0; i--) {
-                let f = floatingTexts[i];
-                f.y -= 1; // 向上飘
-                f.life--;
-                
-                if (f.life > 0) {
-                    ctx.globalAlpha = f.life / 50;
-                    ctx.strokeText(f.text, f.x, f.y);
-                    ctx.fillText(f.text, f.x, f.y);
-                } else {
-                    floatingTexts.splice(i, 1);
-                }
-            }
-            ctx.globalAlpha = 1;
-        }
-
-        function checkWinCondition() {
-            const pigsLeft = engine.world.bodies.filter(b => b.label === 'Pig');
-            if (pigsLeft.length === 0) {
-                showEndScreen("大获全胜!");
-            } else if (!sling) { // 鸟发射了，猪还在
-                // 简单的延时判定
-                setTimeout(() => {
-                   const pigsStill = engine.world.bodies.filter(b => b.label === 'Pig');
-                   if(pigsStill.length > 0) showEndScreen("挑战失败");
-                }, 2000);
-            }
-        }
-
-        function showEndScreen(text) {
-            document.getElementById('endTitle').innerText = text;
-            document.getElementById('endModal').style.display = 'block';
-        }
-
-        // 窗口适应
-        window.addEventListener('resize', () => {
-            // 简单处理：刷新页面
-            // location.reload(); 
+        // 键盘R键重置
+        window.addEventListener('keydown', (e) => {
+            if(e.key === 'r' || e.key === 'R') resetGame();
         });
-
     </script>
 </body>
 </html>
