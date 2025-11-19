@@ -3,32 +3,290 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>愤怒的小鸟：终极版</title>
-    <link rel="stylesheet" href="style.css">
+    <title>愤怒的小鸟：最终暴力修复版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: #333; touch-action: none; user-select: none; -webkit-user-select: none;}
+        
+        /* 强制画布在最上层，但在UI之下 (UI需要穿透) */
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 1;
+        }
+
+        /* UI层：关键设置 pointer-events: none 让鼠标能穿透它点到画布 */
+        #ui {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            font-family: sans-serif;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        .hud-text { position: absolute; top: 20px; left: 20px; font-size: 24px; font-weight: bold; }
+        .hint-text { position: absolute; top: 60px; left: 20px; font-size: 14px; opacity: 0.8; }
+        
+        /* 按钮需要 pointer-events: auto 才能点击 */
+        #resetBtn {
+            pointer-events: auto; 
+            position: absolute; top: 20px; right: 20px;
+            padding: 10px 20px; background: #ff4444; color: white;
+            border: none; border-radius: 5px; font-size: 18px; cursor: pointer;
+        }
+
+        /* 调试用的点击反馈，如果你点屏幕没反应，这个红点也不会出现 */
+        .debug-dot {
+            position: absolute; width: 10px; height: 10px; background: red; border-radius: 50%;
+            pointer-events: none; transform: translate(-50%, -50%); z-index: 9999; display: none;
+        }
+    </style>
 </head>
 <body>
 
-    <div id="game-container"></div>
-
-    <div id="ui-layer">
-        <div class="hud">
-            <div class="score-board">分数: <span id="score">0</span></div>
-            <div class="controls-hint">拖拽瞄准 • R重置</div>
-        </div>
-
-        <div id="modal" class="modal hidden">
-            <div class="modal-content">
-                <h1 id="modal-title">胜利!</h1>
-                <p id="modal-score">得分: 0</p>
-                <div class="btn-group">
-                    <button id="btn-next" class="btn btn-primary">下一关</button>
-                    <button id="btn-retry" class="btn btn-danger">重试</button>
-                </div>
-            </div>
-        </div>
+    <div id="ui">
+        <div class="hud-text">分数: <span id="score">0</span></div>
+        <div class="hint-text">如果拖不动，请刷新页面</div>
+        <button id="resetBtn" onclick="resetLevel()">重置关卡</button>
     </div>
 
-    <script src="game.js"></script>
+    <script>
+        // --- 核心逻辑 ---
+        const Engine = Matter.Engine,
+              Render = Matter.Render,
+              Runner = Matter.Runner,
+              Bodies = Matter.Bodies,
+              Composite = Matter.Composite,
+              Events = Matter.Events,
+              Constraint = Matter.Constraint,
+              Vector = Matter.Vector,
+              Body = Matter.Body;
+
+        let engine, render, runner;
+        let bird, sling, anchor;
+        let isDragging = false; // 手动通过 JS 控制拖拽状态
+        let score = 0;
+
+        // 初始化
+        function init() {
+            // 1. 建立物理引擎
+            engine = Engine.create();
+            engine.gravity.y = 1;
+
+            // 2. 建立渲染器
+            render = Render.create({
+                element: document.body,
+                engine: engine,
+                options: {
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    wireframes: false,
+                    background: 'linear-gradient(to bottom, #87CEEB, #E0F7FA)' // CSS背景
+                }
+            });
+
+            // 3. 绑定原生输入事件 (绕过 Matter.js 的鼠标控制)
+            const canvas = render.canvas;
+            
+            // 鼠标事件
+            canvas.addEventListener('mousedown', handleInputStart);
+            window.addEventListener('mousemove', handleInputMove);
+            window.addEventListener('mouseup', handleInputEnd);
+            
+            // 触摸事件 (手机)
+            canvas.addEventListener('touchstart', handleInputStart, {passive: false});
+            window.addEventListener('touchmove', handleInputMove, {passive: false});
+            window.addEventListener('touchend', handleInputEnd);
+
+            // 4. 启动
+            Render.run(render);
+            runner = Runner.create();
+            Runner.run(runner, engine);
+
+            // 5. 挂载绘图增强 (画皮筋等)
+            Events.on(render, 'afterRender', drawExtras);
+            Events.on(engine, 'collisionStart', handleCollisions);
+
+            resetLevel();
+        }
+
+        function resetLevel() {
+            Composite.clear(engine.world);
+            engine.events = {}; // 清理旧事件
+            Events.on(engine, 'collisionStart', handleCollisions); // 重新绑定
+
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+
+            // 地面
+            const ground = Bodies.rectangle(w/2, h+25, w, 50, { isStatic: true, render: { fillStyle: '#4caf50' } });
+            
+            // 平台
+            const pX = w * 0.7;
+            const pY = h - 100;
+            const platform = Bodies.rectangle(pX, pY, 200, 20, { isStatic: true, render: { fillStyle: '#795548' } });
+
+            // 目标物体 (简单的堆叠)
+            const box1 = Bodies.rectangle(pX - 30, pY - 30, 40, 40, { label: 'box', render: { fillStyle: '#ffcc80' } });
+            const box2 = Bodies.rectangle(pX + 30, pY - 30, 40, 40, { label: 'box', render: { fillStyle: '#ffcc80' } });
+            const pig = Bodies.circle(pX, pY - 80, 20, { label: 'pig', render: { fillStyle: '#81c784' } });
+
+            // 玩家
+            anchor = { x: w * 0.2, y: h - 150 };
+            bird = Bodies.circle(anchor.x, anchor.y, 25, { 
+                label: 'bird', 
+                density: 0.004, restitution: 0.6,
+                render: { fillStyle: '#f44336' } // 鲜艳的红色
+            });
+
+            // 弹弓约束
+            sling = Constraint.create({
+                pointA: anchor,
+                bodyB: bird,
+                stiffness: 0.05,
+                damping: 0.01,
+                length: 1,
+                render: { visible: false }
+            });
+
+            Composite.add(engine.world, [ground, platform, box1, box2, pig, bird, sling]);
+            isDragging = false;
+            score = 0;
+            document.getElementById('score').innerText = score;
+        }
+
+        // --- 手动输入处理 (核弹级逻辑) ---
+        
+        function getEventPos(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function handleInputStart(e) {
+            // 如果鸟已经飞出去了，就不准抓了
+            if (!sling) return;
+
+            const pos = getEventPos(e);
+            // 计算点击位置和鸟的距离
+            const dist = Vector.magnitude(Vector.sub(pos, bird.position));
+            
+            // 判定范围放大到 60像素，随便点都能点中
+            if (dist < 60) {
+                isDragging = true;
+                // 阻止默认行为（防止手机滚动）
+                if(e.preventDefault) e.preventDefault();
+                // 既然抓住了，就把鸟的速度清零，防止它乱动
+                Body.setVelocity(bird, { x: 0, y: 0 });
+            }
+        }
+
+        function handleInputMove(e) {
+            if (!isDragging || !bird) return;
+            
+            const pos = getEventPos(e);
+            if(e.preventDefault) e.preventDefault();
+
+            // 限制拖拽最大半径 (防止拉到天边去)
+            const maxStretch = 150;
+            const delta = Vector.sub(pos, anchor);
+            const dist = Vector.magnitude(delta);
+            
+            let newPos = pos;
+            if (dist > maxStretch) {
+                // 如果拉太远，就限制在最大半径圆周上
+                const ratio = maxStretch / dist;
+                newPos = Vector.add(anchor, Vector.mult(delta, ratio));
+            }
+
+            // 暴力修改鸟的位置
+            Body.setPosition(bird, newPos);
+            Body.setVelocity(bird, { x: 0, y: 0 }); // 拖拽时没有速度
+        }
+
+        function handleInputEnd(e) {
+            if (!isDragging) return;
+            isDragging = false;
+
+            // 发射逻辑
+            const dist = Vector.magnitude(Vector.sub(bird.position, anchor));
+            
+            if (dist > 20) {
+                // 只要拉开距离大于20，就松手发射
+                // 延迟释放弹弓，利用物理引擎的弹力
+                setTimeout(() => {
+                    if (sling) {
+                        Composite.remove(engine.world, sling);
+                        sling = null;
+                    }
+                }, 20);
+            } else {
+                // 拉得太近，放回原位
+                Body.setPosition(bird, anchor);
+            }
+        }
+
+        // --- 绘图增强 ---
+        function drawExtras() {
+            const ctx = render.context;
+
+            // 1. 画弹弓皮筋
+            if (sling && bird) {
+                ctx.beginPath();
+                ctx.moveTo(anchor.x, anchor.y);
+                ctx.lineTo(bird.position.x, bird.position.y);
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
+            }
+
+            // 2. 简单的瞄准线 (如果正在拖拽)
+            if (isDragging && bird) {
+                ctx.beginPath();
+                ctx.moveTo(bird.position.x, bird.position.y);
+                ctx.lineTo(anchor.x, anchor.y);
+                ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        // --- 碰撞逻辑 ---
+        function handleCollisions(e) {
+            e.pairs.forEach(pair => {
+                const bodyA = pair.bodyA;
+                const bodyB = pair.bodyB;
+                const speed = pair.collision.normalImpulse;
+
+                // 简化判定：只有冲击力够大才算
+                if (speed > 3) {
+                    [bodyA, bodyB].forEach(b => {
+                        if (b.label === 'pig' || b.label === 'box') {
+                            // 简单的血量模拟：撞一下就死
+                            if (!b.isDead) {
+                                b.isDead = true;
+                                score += (b.label === 'pig' ? 500 : 100);
+                                document.getElementById('score').innerText = score;
+                                Composite.remove(engine.world, b);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        // 窗口调整
+        window.addEventListener('resize', () => {
+            render.canvas.width = window.innerWidth;
+            render.canvas.height = window.innerHeight;
+        });
+
+        // 启动
+        init();
+
+    </script>
 </body>
 </html>
